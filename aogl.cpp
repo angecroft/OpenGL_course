@@ -160,16 +160,26 @@ int main( int argc, char **argv )
     GLuint vertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "aogl.vert");
     GLuint fragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "aogl.frag");
     GLuint geomShaderId = compile_shader_from_file(GL_GEOMETRY_SHADER, "aogl.geom");
+    GLuint lightVertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "light.vert");
+    GLuint lightFragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "light.frag");
     GLuint programObject = glCreateProgram();
+    GLuint programLight = glCreateProgram();
     glAttachShader(programObject, vertShaderId);
     glAttachShader(programObject, fragShaderId);
     glAttachShader(programObject, geomShaderId);
     glLinkProgram(programObject);
+    glAttachShader(programLight, lightVertShaderId);
+    glAttachShader(programLight, lightFragShaderId);
+    glLinkProgram(programLight);
     if (check_link_error(programObject) < 0)
+        exit(1);
+
+    if (check_link_error(programLight) < 0)
         exit(1);
     
     // Upload uniforms
     GLuint mvpLocation = glGetUniformLocation(programObject, "MVP");
+    GLuint mvpLocation2 = glGetUniformLocation(programLight, "MVP");
 
     if (!checkError("Uniforms"))
         exit(1);
@@ -190,7 +200,6 @@ int main( int argc, char **argv )
     float plane_uvs[] = {0.f, 0.f, 0.f, 1.f, 1.f, 0.f, 1.f, 1.f};
     float plane_vertices[] = {-5.0, -1.0, 5.0, 5.0, -1.0, 5.0, -5.0, -1.0, -5.0, 5.0, -1.0, -5.0};
     float plane_normals[] = {0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0};
-
 
     //CUBE
 
@@ -271,8 +280,36 @@ int main( int argc, char **argv )
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    // Initialize uniform location
-    GLuint timeLocation = glGetUniformLocation(programObject, "Time");
+    // Lights
+//    float lightPosition[3] = {0,5,3};
+    int specularPower = 30;
+    float pointLightPos[12] = {4,3,0,-3,3,0,0,5,0,2,2,0};
+    float pointLightColor[12] = {1,0,0,0,1,0,0,0,1,1,1,0};
+    float pointLightIntensity[4] = {0.5, 0.5, 0.5, 1.0};
+    float spotAngle = 40.0;
+    float spotDirection[3] = {0,-1,0};
+
+    // Create a Vertex Array Object
+    GLuint vaoLight;
+    glGenVertexArrays(1, &vaoLight);
+
+    // Create a VBO for each array
+    GLuint vboLight;
+    glGenBuffers(1, &vboLight);
+
+    // Bind the VAO
+    glBindVertexArray(vaoLight);
+
+    // Bind vertices and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vboLight);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pointLightPos), pointLightPos, GL_STATIC_DRAW);
+
+    // Unbind everything
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     // Charger les textures
     int x;
@@ -290,9 +327,6 @@ int main( int argc, char **argv )
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
-    glProgramUniform1i(programObject, diffuseLocation, 0);
-
     glBindTexture(GL_TEXTURE_2D, texture[1]);
     diffuse = stbi_load("textures/spnza_bricks_a_spec.tga", &x, &y, &comp, 3);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
@@ -301,18 +335,27 @@ int main( int argc, char **argv )
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    GLuint diffuseLocation2 = glGetUniformLocation(programObject, "Diffuse2");
-    glProgramUniform1i(programObject, diffuseLocation2, 1);
-
-    float lightPosition[3] = {0.3,0.5,2};
-    GLuint lightLocation = glGetUniformLocation(programObject, "Light");
-    glProgramUniform3f(programObject, lightLocation, lightPosition[0], lightPosition[1], lightPosition[2]);
-
-    int specularPower = 80;
-    GLuint specularLocation = glGetUniformLocation(programObject, "specularPower");
-    glProgramUniform1i(programObject, specularLocation, specularPower);
-
+    // Initialize uniform location
+    GLuint timeLocation = glGetUniformLocation(programObject, "Time");
     GLuint cameraLocation = glGetUniformLocation(programObject, "Camera");
+    GLuint specularLocation = glGetUniformLocation(programObject, "specularPower");
+    GLuint lightLocation = glGetUniformLocation(programObject, "Light");
+    GLuint diffuseLocation2 = glGetUniformLocation(programObject, "Diffuse2");
+    GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
+    GLuint pointLightPosLocation = glGetUniformLocation(programObject, "pointLightPosition");
+    GLuint pointLightColorLocation = glGetUniformLocation(programObject, "pointLightColor");
+    GLuint lightColorLocation = glGetUniformLocation(programLight, "lightColor");
+    GLuint pointLightIntensityLocation = glGetUniformLocation(programObject, "pointLightIntensity");
+    GLuint spotAngleLocation = glGetUniformLocation(programObject, "spotAngle");
+    GLuint spotDirectionLocation = glGetUniformLocation(programObject, "spotDirection");
+
+
+    glProgramUniform1i(programObject, diffuseLocation, 0);
+    glProgramUniform1i(programObject, specularLocation, specularPower);
+    glProgramUniform1i(programObject, diffuseLocation2, 1);
+//    glProgramUniform3fv(programObject, lightLocation, 3, &lightPosition[0]);
+    glProgramUniform1f(programObject, spotAngleLocation, spotAngle);
+    glProgramUniform3fv(programObject, spotDirectionLocation,1, &spotDirection[0]);
 
     do
     {
@@ -385,6 +428,10 @@ int main( int argc, char **argv )
         // Default states
         glEnable(GL_DEPTH_TEST);
 
+
+        // Enable point size control in vertex shader
+        glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
+
         // Clear the front buffer
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -399,6 +446,7 @@ int main( int argc, char **argv )
 
         // Upload uniforms
         glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
+        glProgramUniformMatrix4fv(programLight, mvpLocation2, 1, 0, glm::value_ptr(mvp));
 
         // Render vaos
         glActiveTexture(GL_TEXTURE0);
@@ -408,8 +456,15 @@ int main( int argc, char **argv )
         glBindVertexArray(vao);
         glDrawElementsInstanced(GL_TRIANGLES, cube_triangleCount * 3, GL_UNSIGNED_INT, (void*)0, 4);
 
-//        glBindVertexArray(vao2);
-//        glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        glBindVertexArray(vao2);
+        glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        // Select shader
+        glUseProgram(programLight);
+
+        //drawlight
+        glBindVertexArray(vaoLight);
+        glDrawArrays(GL_POINTS, 0, 4);
 
 #if 1
         // Draw UI
@@ -432,10 +487,53 @@ int main( int argc, char **argv )
         imguiBeginFrame(mousex, mousey, mbut, mscroll);
         int logScroll = 0;
         char lineBuffer[512];
-        imguiBeginScrollArea("aogl", width - 210, height - 310, 200, 300, &logScroll);
+        imguiBeginScrollArea("aogl", width - 210, height - 610, 200, 600, &logScroll);
         sprintf(lineBuffer, "FPS %f", fps);
         imguiLabel(lineBuffer);
-        imguiSlider("Dummy", &dummySlider, 0.0, 3.0, 0.1);
+        imguiLabel("Point Light");
+        imguiSlider("Intensity", &pointLightIntensity[0], 0.0, 1.0, 0.05);
+        imguiSlider("R", &pointLightColor[0], 0.0, 1.0, 0.05);
+        imguiSlider("G", &pointLightColor[1], 0.0, 1.0, 0.05);
+        imguiSlider("B", &pointLightColor[2], 0.0, 1.0, 0.05);
+//        imguiSlider("x", &pointLightPos[0], -10, 10.0, 0.05);
+//        imguiSlider("y", &pointLightPos[1], -10, 10, 0.05);
+//        imguiSlider("z", &pointLightPos[2], -10, 10, 0.05);
+        imguiSlider("Intensity", &pointLightIntensity[1], 0.0, 1.0, 0.05);
+        imguiSlider("R", &pointLightColor[3], 0.0, 1.0, 0.05);
+        imguiSlider("G", &pointLightColor[4], 0.0, 1.0, 0.05);
+        imguiSlider("B", &pointLightColor[5], 0.0, 1.0, 0.05);
+//        imguiSlider("x", &pointLightPos[3], -10, 10.0, 0.05);
+//        imguiSlider("y", &pointLightPos[4], -10, 10, 0.05);
+//        imguiSlider("z", &pointLightPos[5], -10, 10, 0.05);
+        imguiLabel("Directional Light");
+        imguiSlider("Intensity", &pointLightIntensity[2], 0.0, 1.0, 0.05);
+        imguiSlider("R", &pointLightColor[6], 0.0, 1.0, 0.05);
+        imguiSlider("G", &pointLightColor[7], 0.0, 1.0, 0.05);
+        imguiSlider("B", &pointLightColor[8], 0.0, 1.0, 0.05);
+//        imguiSlider("x", &pointLightPos[6], -10, 10.0, 0.05);
+//        imguiSlider("y", &pointLightPos[7], -10, 10, 0.05);
+//        imguiSlider("z", &pointLightPos[8], -10, 10, 0.05);
+        imguiLabel("Spot Light");
+        imguiSlider("Intensity", &pointLightIntensity[3], 0.0, 1.0, 0.05);
+        imguiSlider("R", &pointLightColor[9], 0.0, 1.0, 0.05);
+        imguiSlider("G", &pointLightColor[10], 0.0, 1.0, 0.05);
+        imguiSlider("B", &pointLightColor[11], 0.0, 1.0, 0.05);
+        imguiSlider("Angle", &spotAngle, 0.0, 90.0, .5);
+
+        glProgramUniform1fv(programObject, pointLightIntensityLocation, 4, &pointLightIntensity[0]);
+        glProgramUniform3fv(programObject, pointLightPosLocation, 4, &pointLightPos[0]);
+        glProgramUniform3fv(programObject, pointLightColorLocation, 4, &pointLightColor[0]);
+        glProgramUniform1f(programObject, spotAngleLocation, spotAngle);
+
+        glProgramUniform3fv(programLight, lightColorLocation, 4, &pointLightColor[0]);
+
+//        glProgramUniform1f(programObject, pointLightIntensityLocation2, pointLightIntensity2);
+//        glProgramUniform3f(programObject, pointLightPosLocation2, pointLightPos2[0], pointLightPos2[1], pointLightPos2[2]);
+//        glProgramUniform3f(programObject, pointLightColorLocation2, pointLightColor2[0], pointLightColor2[1], pointLightColor2[2]);
+
+//        glProgramUniform1f(programObject, directionalIntensityLocation, directionalIntensity);
+//        glProgramUniform3f(programObject, directionalPosLocation, directionalPos[0], directionalPos[1], directionalPos[2]);
+//        glProgramUniform3f(programObject, directionalColorLocation, directionalColor[0], directionalColor[1], directionalColor[2]);
 
         imguiEndScrollArea();
         imguiEndFrame();
