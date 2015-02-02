@@ -88,10 +88,7 @@ vec3 illuminationSpotLight(vec3 direction, vec3 position, vec3 color, float angl
     angle = radians(angle);
     float theta = acos(dot(-l, normalize(direction)));
 
-    if(theta > angle / 2)
-        return vec3(0);
-
-    float falloff = pow(((cos(theta) - cos(angle)) / (cos(0.1) - cos(angle))), 4);
+    float falloff = clamp(pow(((cos(theta) - cos(angle)) / (cos(angle) - (cos(0.3+angle)))), 4), 0, 1);
 
 
     return ((diffuseColor * ndotl * color * intensity) + (specularColor * intensity)) * attenuation * falloff;
