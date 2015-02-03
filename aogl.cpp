@@ -314,18 +314,12 @@ int main( int argc, char **argv )
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
 
     //CUBE
-
-    // Create a Vertex Array Object
     GLuint vao;
     glGenVertexArrays(1, &vao);
-
-    // Create a VBO for each array
     GLuint vbo[4];
     glGenBuffers(4, vbo);
 
-    // Bind the VAO
     glBindVertexArray(vao);
-
     // Bind indices and upload data
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[0]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_triangleList), cube_triangleList, GL_STATIC_DRAW);
@@ -354,17 +348,12 @@ int main( int argc, char **argv )
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     // TRIANGLE
-    // Create a Vertex Array Object
     GLuint vao2;
     glGenVertexArrays(1, &vao2);
-
-    // Create a VBO for each array
     GLuint vbo2[4];
     glGenBuffers(4, vbo2);
 
-    // Bind the VAO
     glBindVertexArray(vao2);
-
     // Bind indices and upload data
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo2[0]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(plane_triangleList), plane_triangleList, GL_STATIC_DRAW);
@@ -403,14 +392,10 @@ int main( int argc, char **argv )
     // Create a Vertex Array Object
     GLuint vaoLight;
     glGenVertexArrays(1, &vaoLight);
-
-    // Create a VBO for each array
     GLuint vboLight;
     glGenBuffers(1, &vboLight);
 
-    // Bind the VAO
     glBindVertexArray(vaoLight);
-
     // Bind vertices and upload data
     glBindBuffer(GL_ARRAY_BUFFER, vboLight);
     glEnableVertexAttribArray(0);
@@ -453,9 +438,6 @@ int main( int argc, char **argv )
     GLuint lightLocation = glGetUniformLocation(programObject, "Light");
     GLuint diffuseLocation2 = glGetUniformLocation(programObject, "Diffuse2");
     GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
-//    GLuint pointLightPosLocation = glGetUniformLocation(programObject, "pointLightPosition");
-//    GLuint pointLightColorLocation = glGetUniformLocation(programObject, "pointLightColor");
-//    GLuint pointLightIntensityLocation = glGetUniformLocation(programObject, "pointLightIntensity");
     GLuint lightColorLocation = glGetUniformLocation(programLight, "lightColor");
     GLuint spotAngleLocation = glGetUniformLocation(programObject, "spotAngle");
     GLuint spotDirectionLocation = glGetUniformLocation(programObject, "spotDirection");
@@ -596,10 +578,6 @@ int main( int argc, char **argv )
         // Unbind the frambuffer
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        /////////////////
-        // blit screens
-        /////////////////
-
         glDisable(GL_DEPTH_TEST); // Y reflechir pourquoi on a du le bouger our debug ainsi que le clear.
 
         // Main Viewport
@@ -622,6 +600,10 @@ int main( int argc, char **argv )
         glUseProgram(programLight);
         glBindVertexArray(vaoLight);
         glDrawArrays(GL_POINTS, 0, 4);
+
+        /////////////////
+        // blit screens
+        /////////////////
 
         // Use the blit program
         glUseProgram(programBlit);
@@ -674,10 +656,6 @@ int main( int argc, char **argv )
         imguiSlider("G", &pointLightColor[1], 0.0, 1.0, 0.05);
         imguiSlider("B", &pointLightColor[2], 0.0, 1.0, 0.05);
 
-//        glProgramUniform1fv(programObject, pointLightIntensityLocation, 4, &pointLightIntensity[0]);
-//        glProgramUniform3fv(programObject, pointLightPosLocation, 4, &pointLightPos[0]);
-//        glProgramUniform3fv(programObject, pointLightColorLocation, 4, &pointLightColor[0]);
-//        glProgramUniform1f(programObject, spotAngleLocation, spotAngle);
         glProgramUniform1fv(programPointLight, pointLightIntensityLocation, 4, &pointLightIntensity[0]);
         glProgramUniform3fv(programPointLight, pointLightPosLocation, 4, &pointLightPos[0]);
         glProgramUniform3fv(programPointLight, pointLightColorLocation, 4, &pointLightColor[0]);
