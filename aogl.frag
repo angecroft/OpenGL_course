@@ -35,43 +35,17 @@ in block
     float Time;
 } In;
 
-
-vec3 illuminationDirectionalLight(vec3 direction, vec3 color, float intensity, vec3 diffuseColor)
-{
-    // directional
-    vec3 l = normalize(direction);
-    float ndotl = clamp(dot(In.Normal, l), 0.0, 1.0);
-
-    // specularPower
-    vec3 spec = texture(Diffuse2, In.TexCoord).rgb;
-    vec3 v = normalize(Camera - In.Position);
-    vec3 h = normalize(l+v);
-    float ndoth = clamp(dot(In.Normal, h), 0.0, 1.0);
-    vec3 specularColor =  spec * pow(ndoth, specularPower);
-
-    // Specular est en N&B donc chaque composante a la même valeur
-    Color.a = spec.r;
-
-    return (diffuseColor * ndotl * color * intensity) + specularColor * intensity;
-}
-
 void main()
 {
-
     vec3 diffuseColor = texture(Diffuse, In.TexCoord).rgb;
     vec3 spec = texture(Diffuse2, In.TexCoord).rgb;
 
     // illumination diffuse
     vec3 l = normalize(Light - In.Position);
-    // Directional Light
-  //  vec3 directionalLightIllumination = illuminationDirectionalLight(pointLightPosition[2], pointLightColor[2], pointLightIntensity[2], diffuseColor);
-
-//    FragColor = vec4(directionalLightIllumination,  1);
 
     Normal.rgb = In.Normal;
     Normal.a = specularPower;
 
     Color.rgb = diffuseColor;
     Color.a = spec.r;
-
 }

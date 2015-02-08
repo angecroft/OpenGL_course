@@ -33,14 +33,7 @@ void main()
     vec3 pos = Position;
     vec3 normal = Normal;
 
-//    pos.y += gl_InstanceID;
-//    pos.x += cos(Time*4+gl_InstanceID);
-
     gl_Position = MVP * vec4(pos, 1.0);
-
-    //    normal.y += gl_InstanceID;
-    //    normal.x += cos(Time*4+gl_InstanceID);
-
 
     Out.TexCoord = TexCoord;
     Out.Position = Position;

@@ -218,6 +218,7 @@ int main( int argc, char **argv )
     GLuint mvpLocation2 = glGetUniformLocation(programLight, "MVP");
     GLuint screenToWorldLocation = glGetUniformLocation(programPointLight, "ScreenToWorld");
     GLuint screenToWorldLocation2 = glGetUniformLocation(programSpotLight, "ScreenToWorld");
+    GLuint screenToWorldLocation3 = glGetUniformLocation(programDirectionalLight, "ScreenToWorld");
 
     if (!checkError("Uniforms"))
         exit(1);
@@ -385,16 +386,21 @@ int main( int argc, char **argv )
     int specularPower = 30;
     // Point lights
     int pointLightCount = 2;
-    float pointLightPos[] = {-3,3,0,-1.5,3,0};
+    float pointLightPos[] = {-3,3,0,3,3,0};
     float pointLightColor[] = {1,0,0,0,1,0};
     float pointLightIntensity[] = {0.5, 0.5};
     // Spot lights
-    int spotLightCount = 2;
-    float spotLightDirection[] = {0,-1,0,0,-1,0};
-    float spotLightPos[] = {0,3,0,1.5,3,0};
-    float spotLightColor[] = {0.2,0.5,1,1,1,0};
-    float spotLightIntensity[] = {0.5, 1.0};
-    float spotLightAngle[] = {40.0, 50.0};
+    int spotLightCount = 1;
+    float spotLightDirection[] = {0,-1,0};
+    float spotLightPos[] = {0,3,0};
+    float spotLightColor[] = {0.5,0.5,0};
+    float spotLightIntensity[] = {0.5};
+    float spotLightAngle[] = {40.0};
+    // Directional lights
+    int dirLightCount = 2;
+    float dirLightDirection[] = {1,1,0,0,0,1};
+    float dirLightColor[] = {0,0.5,1,1,0.5,0};
+    float dirLightIntensity[] = {1, 1};
 
     // Point of light
     float lightsPos[(pointLightCount+spotLightCount)*3];
@@ -490,6 +496,14 @@ int main( int argc, char **argv )
     GLuint spotLightIntensityLocation = glGetUniformLocation(programSpotLight, "spotLightIntensity");
     GLuint spotLightAngleLocation = glGetUniformLocation(programSpotLight, "spotLightAngle");
     GLuint cameraLocation3 = glGetUniformLocation(programSpotLight, "Camera");
+    // Directional light shader
+    GLuint colorBufferLocation3 = glGetUniformLocation(programDirectionalLight, "ColorBuffer");
+    GLuint normalBufferLocation3 = glGetUniformLocation(programDirectionalLight, "NormalBuffer");
+    GLuint depthBufferLocation3 = glGetUniformLocation(programDirectionalLight, "DepthBuffer");
+    GLuint dirLightDirectionLocation = glGetUniformLocation(programDirectionalLight, "directionalLightDirection");
+    GLuint dirLightColorLocation = glGetUniformLocation(programDirectionalLight, "directionalLightColor");
+    GLuint dirLightIntensityLocation = glGetUniformLocation(programDirectionalLight, "directionalLightIntensity");
+    GLuint cameraLocation4 = glGetUniformLocation(programDirectionalLight, "Camera");
 
     glProgramUniform1i(programObject, diffuseLocation, 0);
     glProgramUniform1i(programObject, diffuseLocation2, 1);
@@ -505,7 +519,10 @@ int main( int argc, char **argv )
     glProgramUniform1i(programSpotLight, colorBufferLocation2, 0);
     glProgramUniform1i(programSpotLight, normalBufferLocation2, 1);
     glProgramUniform1i(programSpotLight, depthBufferLocation2, 2);
-
+    // Directional light shader
+    glProgramUniform1i(programDirectionalLight, colorBufferLocation3, 0);
+    glProgramUniform1i(programDirectionalLight, normalBufferLocation3, 1);
+    glProgramUniform1i(programDirectionalLight, depthBufferLocation3, 2);
 
     do
     {
@@ -575,7 +592,7 @@ int main( int argc, char **argv )
         glProgramUniform3f(programObject, cameraLocation, camera.eye.x, camera.eye.y, camera.eye.z);
         glProgramUniform3f(programPointLight, cameraLocation2, camera.eye.x, camera.eye.y, camera.eye.z);
         glProgramUniform3f(programSpotLight, cameraLocation3, camera.eye.x, camera.eye.y, camera.eye.z);
-
+        glProgramUniform3f(programDirectionalLight, cameraLocation4, camera.eye.x, camera.eye.y, camera.eye.z);
 
         // Default states
         glEnable(GL_DEPTH_TEST);
@@ -610,6 +627,7 @@ int main( int argc, char **argv )
         glProgramUniformMatrix4fv(programLight, mvpLocation2, 1, 0, glm::value_ptr(mvp));
         glProgramUniformMatrix4fv(programPointLight, screenToWorldLocation, 1, 0, glm::value_ptr(screenToWorld));
         glProgramUniformMatrix4fv(programSpotLight, screenToWorldLocation2, 1, 0, glm::value_ptr(screenToWorld));
+        glProgramUniformMatrix4fv(programDirectionalLight, screenToWorldLocation3, 1, 0, glm::value_ptr(screenToWorld));
 
         // Render vaos
         glActiveTexture(GL_TEXTURE0);
@@ -643,6 +661,7 @@ int main( int argc, char **argv )
         glActiveTexture(GL_TEXTURE0 + 2);
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
 
+        // Point light
         for (int i = 0; i < pointLightCount; ++i)
         {
             glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
@@ -652,8 +671,8 @@ int main( int argc, char **argv )
             glProgramUniform3fv(programPointLight, pointLightColorLocation, 1, &pointLightColor[i*3]);
         }
 
+        // Spot light
         glUseProgram(programSpotLight);
-
         for (int i = 0; i < spotLightCount; ++i)
         {
             glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
@@ -663,6 +682,17 @@ int main( int argc, char **argv )
             glProgramUniform3fv(programSpotLight, spotLightColorLocation, 1, &spotLightColor[i*3]);
             glProgramUniform1fv(programSpotLight, spotLightIntensityLocation, 1, &spotLightIntensity[i]);
             glProgramUniform1fv(programSpotLight, spotLightAngleLocation, 1, &spotLightAngle[i]);
+        }
+
+        // Directional light
+        glUseProgram(programDirectionalLight);
+        for (int i = 0; i < dirLightCount; ++i)
+        {
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+            glProgramUniform3fv(programDirectionalLight, dirLightDirectionLocation, 1, &dirLightDirection[i*3]);
+            glProgramUniform3fv(programDirectionalLight, dirLightColorLocation, 1, &dirLightColor[i*3]);
+            glProgramUniform1fv(programDirectionalLight, dirLightIntensityLocation, 1, &dirLightIntensity[i]);
         }
 
         glActiveTexture(GL_TEXTURE0);
@@ -724,50 +754,38 @@ int main( int argc, char **argv )
         sprintf(lineBuffer, "FPS %f", fps);
         imguiLabel(lineBuffer);
         imguiLabel("Point Light");
-        imguiSlider("Intensity", &pointLightIntensity[0], 0.0, 1.0, 0.05);
-        imguiSlider("R", &pointLightColor[0], 0.0, 1.0, 0.05);
-        imguiSlider("G", &pointLightColor[1], 0.0, 1.0, 0.05);
-        imguiSlider("B", &pointLightColor[2], 0.0, 1.0, 0.05);
-
-        imguiSlider("Intensity", &pointLightIntensity[1], 0.0, 1.0, 0.05);
-        imguiSlider("R", &pointLightColor[3], 0.0, 1.0, 0.05);
-        imguiSlider("G", &pointLightColor[4], 0.0, 1.0, 0.05);
-        imguiSlider("B", &pointLightColor[5], 0.0, 1.0, 0.05);
-
-        imguiLabel("Spot Light");
-        imguiSlider("Intensity", &spotLightIntensity[0], 0.0, 1.0, 0.05);
-        imguiSlider("R", &spotLightColor[0], 0.0, 1.0, 0.05);
-        imguiSlider("G", &spotLightColor[1], 0.0, 1.0, 0.05);
-        imguiSlider("B", &spotLightColor[2], 0.0, 1.0, 0.05);
-        imguiSlider("angle", &spotLightAngle[0], 0.0, 90, 1);
-
-        imguiSlider("Intensity", &spotLightIntensity[1], 0.0, 1.0, 0.05);
-        imguiSlider("R", &spotLightColor[3], 0.0, 1.0, 0.05);
-        imguiSlider("G", &spotLightColor[4], 0.0, 1.0, 0.05);
-        imguiSlider("B", &spotLightColor[5], 0.0, 1.0, 0.05);
-        imguiSlider("angle", &spotLightAngle[1], 0.0, 90, 1);
-
-
-//        glProgramUniform1fv(programPointLight, pointLightIntensityLocation, 1, &pointLightIntensity[0]);
-//        glProgramUniform3fv(programPointLight, pointLightPosLocation, 1, &pointLightPos[0]);
-//        glProgramUniform3fv(programPointLight, pointLightColorLocation, 1, &pointLightColor[0]);
         for(int i=0; i<pointLightCount; ++i)
         {
-            lightsPos[i*3] = pointLightPos[i*3];
-            lightsPos[i*3+1] = pointLightPos[i*3+1];
-            lightsPos[i*3+2] = pointLightPos[i*3+2];
+            imguiSlider("Intensity", &pointLightIntensity[i], 0.0, 1.0, 0.05);
+            imguiSlider("R", &pointLightColor[i*3], 0.0, 1.0, 0.05);
+            imguiSlider("G", &pointLightColor[i*3+1], 0.0, 1.0, 0.05);
+            imguiSlider("B", &pointLightColor[i*3+2], 0.0, 1.0, 0.05);
+
+            // Update
             lightsColor[i*3] = pointLightColor[i*3];
             lightsColor[i*3+1] = pointLightColor[i*3+1];
             lightsColor[i*3+2] = pointLightColor[i*3+2];
         }
+
+        imguiLabel("Spot Light");
         for(int i=0; i<spotLightCount; ++i)
         {
-            lightsPos[(i+pointLightCount)*3] = spotLightPos[i*3];
-            lightsPos[(i+pointLightCount)*3+1] = spotLightPos[i*3+1];
-            lightsPos[(i+pointLightCount)*3+2] = spotLightPos[i*3+2];
+            imguiSlider("Intensity", &spotLightIntensity[i], 0.0, 1.0, 0.05);
+            imguiSlider("R", &spotLightColor[i*3], 0.0, 1.0, 0.05);
+            imguiSlider("G", &spotLightColor[i*3+1], 0.0, 1.0, 0.05);
+            imguiSlider("B", &spotLightColor[i*3+2], 0.0, 1.0, 0.05);
+            imguiSlider("angle", &spotLightAngle[i], 0.0, 90, 1);
+
+            // Update
             lightsColor[(i+pointLightCount)*3] = spotLightColor[i*3];
             lightsColor[(i+pointLightCount)*3+1] = spotLightColor[i*3+1];
             lightsColor[(i+pointLightCount)*3+2] = spotLightColor[i*3+2];
+        }
+
+        imguiLabel("Directional Light");
+        for(int i=0; i<dirLightCount; ++i)
+        {
+            imguiSlider("Intensity", &dirLightIntensity[i], 0.0, 1.0, 0.05);
         }
 
         glProgramUniform3fv(programLight, lightColorLocation, 4, &lightsColor[0]);
