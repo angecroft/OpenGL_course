@@ -154,7 +154,6 @@ int main( int argc, char **argv )
     camera_defaults(camera);
     GUIStates guiStates;
     init_gui_states(guiStates);
-    float dummySlider = 0.f;
 
     // Try to load and compile shaders
     GLuint vertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "aogl.vert");
@@ -218,6 +217,7 @@ int main( int argc, char **argv )
     GLuint mvpLocation = glGetUniformLocation(programObject, "MVP");
     GLuint mvpLocation2 = glGetUniformLocation(programLight, "MVP");
     GLuint screenToWorldLocation = glGetUniformLocation(programPointLight, "ScreenToWorld");
+    GLuint screenToWorldLocation2 = glGetUniformLocation(programSpotLight, "ScreenToWorld");
 
     if (!checkError("Uniforms"))
         exit(1);
@@ -383,11 +383,41 @@ int main( int argc, char **argv )
 
     // Lights
     int specularPower = 30;
-    float pointLightPos[12] = {0,3,0,-3,3,0,0,5,0,2,2,0};
-    float pointLightColor[12] = {1,0,0,0,1,0,0.2,0.5,1,1,1,0};
-    float pointLightIntensity[4] = {0.5, 0.5, 0.5, 1.0};
-    float spotAngle = 40.0;
-    float spotDirection[3] = {0,-1,0};
+    // Point lights
+    int pointLightCount = 2;
+    float pointLightPos[] = {-3,3,0,-1.5,3,0};
+    float pointLightColor[] = {1,0,0,0,1,0};
+    float pointLightIntensity[] = {0.5, 0.5};
+    // Spot lights
+    int spotLightCount = 2;
+    float spotLightDirection[] = {0,-1,0,0,-1,0};
+    float spotLightPos[] = {0,3,0,1.5,3,0};
+    float spotLightColor[] = {0.2,0.5,1,1,1,0};
+    float spotLightIntensity[] = {0.5, 1.0};
+    float spotLightAngle[] = {40.0, 50.0};
+
+    // Point of light
+    float lightsPos[(pointLightCount+spotLightCount)*3];
+    float lightsColor[(pointLightCount+spotLightCount)*3];
+
+    for(int i=0; i<pointLightCount; ++i)
+    {
+        lightsPos[i*3] = pointLightPos[i*3];
+        lightsPos[i*3+1] = pointLightPos[i*3+1];
+        lightsPos[i*3+2] = pointLightPos[i*3+2];
+        lightsColor[i*3] = pointLightColor[i*3];
+        lightsColor[i*3+1] = pointLightColor[i*3+1];
+        lightsColor[i*3+2] = pointLightColor[i*3+2];
+    }
+    for(int i=0; i<spotLightCount; ++i)
+    {
+        lightsPos[(i+pointLightCount)*3] = spotLightPos[i*3];
+        lightsPos[(i+pointLightCount)*3+1] = spotLightPos[i*3+1];
+        lightsPos[(i+pointLightCount)*3+2] = spotLightPos[i*3+2];
+        lightsColor[(i+pointLightCount)*3] = spotLightColor[i*3];
+        lightsColor[(i+pointLightCount)*3+1] = spotLightColor[i*3+1];
+        lightsColor[(i+pointLightCount)*3+2] = spotLightColor[i*3+2];
+    }
 
     // Create a Vertex Array Object
     GLuint vaoLight;
@@ -400,9 +430,9 @@ int main( int argc, char **argv )
     glBindBuffer(GL_ARRAY_BUFFER, vboLight);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(pointLightPos), pointLightPos, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(lightsPos), lightsPos, GL_STATIC_DRAW);
 
-    // Unbind everything
+    // Unbind everything        for(int i=0; i<12; ++i)
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -439,28 +469,43 @@ int main( int argc, char **argv )
     GLuint diffuseLocation2 = glGetUniformLocation(programObject, "Diffuse2");
     GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
     GLuint lightColorLocation = glGetUniformLocation(programLight, "lightColor");
-    GLuint spotAngleLocation = glGetUniformLocation(programObject, "spotAngle");
-    GLuint spotDirectionLocation = glGetUniformLocation(programObject, "spotDirection");
+    // Blit screen shader
+    GLuint isDepthLocation = glGetUniformLocation(programBlit, "isDepth");
     GLuint textureLocation = glGetUniformLocation(programBlit, "Texture");
+    // Point light shader
     GLuint colorBufferLocation = glGetUniformLocation(programPointLight, "ColorBuffer");
     GLuint normalBufferLocation = glGetUniformLocation(programPointLight, "NormalBuffer");
     GLuint depthBufferLocation = glGetUniformLocation(programPointLight, "DepthBuffer");
-    GLuint isDepthLocation = glGetUniformLocation(programBlit, "isDepth");
     GLuint pointLightPosLocation = glGetUniformLocation(programPointLight, "pointLightPosition");
     GLuint pointLightColorLocation = glGetUniformLocation(programPointLight, "pointLightColor");
     GLuint pointLightIntensityLocation = glGetUniformLocation(programPointLight, "pointLightIntensity");
     GLuint cameraLocation2 = glGetUniformLocation(programPointLight, "Camera");
+    // Spot light shader
+    GLuint colorBufferLocation2 = glGetUniformLocation(programSpotLight, "ColorBuffer");
+    GLuint normalBufferLocation2 = glGetUniformLocation(programSpotLight, "NormalBuffer");
+    GLuint depthBufferLocation2 = glGetUniformLocation(programSpotLight, "DepthBuffer");
+    GLuint spotLightPosLocation = glGetUniformLocation(programSpotLight, "spotLightPosition");
+    GLuint spotLightDirectionLocation = glGetUniformLocation(programSpotLight, "spotLightDirection");
+    GLuint spotLightColorLocation = glGetUniformLocation(programSpotLight, "spotLightColor");
+    GLuint spotLightIntensityLocation = glGetUniformLocation(programSpotLight, "spotLightIntensity");
+    GLuint spotLightAngleLocation = glGetUniformLocation(programSpotLight, "spotLightAngle");
+    GLuint cameraLocation3 = glGetUniformLocation(programSpotLight, "Camera");
 
     glProgramUniform1i(programObject, diffuseLocation, 0);
     glProgramUniform1i(programObject, diffuseLocation2, 1);
     glProgramUniform1i(programObject, specularLocation, specularPower);
-    glProgramUniform1f(programObject, spotAngleLocation, spotAngle);
-    glProgramUniform3fv(programObject, spotDirectionLocation,1, &spotDirection[0]);
+    // Blit screen shader
     glProgramUniform1i(programBlit, textureLocation, 0);
+    glProgramUniform1i(programBlit, isDepthLocation, 0);
+    // Point light shader
     glProgramUniform1i(programPointLight, colorBufferLocation, 0);
     glProgramUniform1i(programPointLight, normalBufferLocation, 1);
     glProgramUniform1i(programPointLight, depthBufferLocation, 2);
-    glProgramUniform1i(programBlit, isDepthLocation, 0);
+    // Spot light shader
+    glProgramUniform1i(programSpotLight, colorBufferLocation2, 0);
+    glProgramUniform1i(programSpotLight, normalBufferLocation2, 1);
+    glProgramUniform1i(programSpotLight, depthBufferLocation2, 2);
+
 
     do
     {
@@ -529,6 +574,7 @@ int main( int argc, char **argv )
 
         glProgramUniform3f(programObject, cameraLocation, camera.eye.x, camera.eye.y, camera.eye.z);
         glProgramUniform3f(programPointLight, cameraLocation2, camera.eye.x, camera.eye.y, camera.eye.z);
+        glProgramUniform3f(programSpotLight, cameraLocation3, camera.eye.x, camera.eye.y, camera.eye.z);
 
 
         // Default states
@@ -563,6 +609,7 @@ int main( int argc, char **argv )
         glProgramUniformMatrix4fv(programObject, mvpLocation, 1, 0, glm::value_ptr(mvp));
         glProgramUniformMatrix4fv(programLight, mvpLocation2, 1, 0, glm::value_ptr(mvp));
         glProgramUniformMatrix4fv(programPointLight, screenToWorldLocation, 1, 0, glm::value_ptr(screenToWorld));
+        glProgramUniformMatrix4fv(programSpotLight, screenToWorldLocation2, 1, 0, glm::value_ptr(screenToWorld));
 
         // Render vaos
         glActiveTexture(GL_TEXTURE0);
@@ -579,11 +626,15 @@ int main( int argc, char **argv )
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         glDisable(GL_DEPTH_TEST); // Y reflechir pourquoi on a du le bouger our debug ainsi que le clear.
+        // Enable blending
+        glEnable(GL_BLEND);
+        // Setup additive blending
+        glBlendFunc(GL_ONE, GL_ONE);
 
         // Main Viewport
         glViewport( 0, 0, width, height);
-        glUseProgram(programPointLight);
         glBindVertexArray(vaoQuad);
+        glUseProgram(programPointLight);
 
         glActiveTexture(GL_TEXTURE0 + 0);
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
@@ -592,14 +643,36 @@ int main( int argc, char **argv )
         glActiveTexture(GL_TEXTURE0 + 2);
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
 
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        for (int i = 0; i < pointLightCount; ++i)
+        {
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+            glProgramUniform1fv(programPointLight, pointLightIntensityLocation, 1, &pointLightIntensity[i]);
+            glProgramUniform3fv(programPointLight, pointLightPosLocation, 1, &pointLightPos[i*3]);
+            glProgramUniform3fv(programPointLight, pointLightColorLocation, 1, &pointLightColor[i*3]);
+        }
+
+        glUseProgram(programSpotLight);
+
+        for (int i = 0; i < spotLightCount; ++i)
+        {
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+            glProgramUniform3fv(programSpotLight, spotLightPosLocation, 1, &spotLightPos[i*3]);
+            glProgramUniform3fv(programSpotLight, spotLightDirectionLocation, 1, &spotLightDirection[i*3]);
+            glProgramUniform3fv(programSpotLight, spotLightColorLocation, 1, &spotLightColor[i*3]);
+            glProgramUniform1fv(programSpotLight, spotLightIntensityLocation, 1, &spotLightIntensity[i]);
+            glProgramUniform1fv(programSpotLight, spotLightAngleLocation, 1, &spotLightAngle[i]);
+        }
 
         glActiveTexture(GL_TEXTURE0);
+        // Disable blending
+        glDisable(GL_BLEND);
 
         // draw light point (GL_POINTS)
         glUseProgram(programLight);
         glBindVertexArray(vaoLight);
-        glDrawArrays(GL_POINTS, 0, 4);
+        glDrawArrays(GL_POINTS, 0, pointLightCount+spotLightCount);
 
         /////////////////
         // blit screens
@@ -656,10 +729,48 @@ int main( int argc, char **argv )
         imguiSlider("G", &pointLightColor[1], 0.0, 1.0, 0.05);
         imguiSlider("B", &pointLightColor[2], 0.0, 1.0, 0.05);
 
-        glProgramUniform1fv(programPointLight, pointLightIntensityLocation, 4, &pointLightIntensity[0]);
-        glProgramUniform3fv(programPointLight, pointLightPosLocation, 4, &pointLightPos[0]);
-        glProgramUniform3fv(programPointLight, pointLightColorLocation, 4, &pointLightColor[0]);
-        glProgramUniform3fv(programLight, lightColorLocation, 4, &pointLightColor[0]);
+        imguiSlider("Intensity", &pointLightIntensity[1], 0.0, 1.0, 0.05);
+        imguiSlider("R", &pointLightColor[3], 0.0, 1.0, 0.05);
+        imguiSlider("G", &pointLightColor[4], 0.0, 1.0, 0.05);
+        imguiSlider("B", &pointLightColor[5], 0.0, 1.0, 0.05);
+
+        imguiLabel("Spot Light");
+        imguiSlider("Intensity", &spotLightIntensity[0], 0.0, 1.0, 0.05);
+        imguiSlider("R", &spotLightColor[0], 0.0, 1.0, 0.05);
+        imguiSlider("G", &spotLightColor[1], 0.0, 1.0, 0.05);
+        imguiSlider("B", &spotLightColor[2], 0.0, 1.0, 0.05);
+        imguiSlider("angle", &spotLightAngle[0], 0.0, 90, 1);
+
+        imguiSlider("Intensity", &spotLightIntensity[1], 0.0, 1.0, 0.05);
+        imguiSlider("R", &spotLightColor[3], 0.0, 1.0, 0.05);
+        imguiSlider("G", &spotLightColor[4], 0.0, 1.0, 0.05);
+        imguiSlider("B", &spotLightColor[5], 0.0, 1.0, 0.05);
+        imguiSlider("angle", &spotLightAngle[1], 0.0, 90, 1);
+
+
+//        glProgramUniform1fv(programPointLight, pointLightIntensityLocation, 1, &pointLightIntensity[0]);
+//        glProgramUniform3fv(programPointLight, pointLightPosLocation, 1, &pointLightPos[0]);
+//        glProgramUniform3fv(programPointLight, pointLightColorLocation, 1, &pointLightColor[0]);
+        for(int i=0; i<pointLightCount; ++i)
+        {
+            lightsPos[i*3] = pointLightPos[i*3];
+            lightsPos[i*3+1] = pointLightPos[i*3+1];
+            lightsPos[i*3+2] = pointLightPos[i*3+2];
+            lightsColor[i*3] = pointLightColor[i*3];
+            lightsColor[i*3+1] = pointLightColor[i*3+1];
+            lightsColor[i*3+2] = pointLightColor[i*3+2];
+        }
+        for(int i=0; i<spotLightCount; ++i)
+        {
+            lightsPos[(i+pointLightCount)*3] = spotLightPos[i*3];
+            lightsPos[(i+pointLightCount)*3+1] = spotLightPos[i*3+1];
+            lightsPos[(i+pointLightCount)*3+2] = spotLightPos[i*3+2];
+            lightsColor[(i+pointLightCount)*3] = spotLightColor[i*3];
+            lightsColor[(i+pointLightCount)*3+1] = spotLightColor[i*3+1];
+            lightsColor[(i+pointLightCount)*3+2] = spotLightColor[i*3+2];
+        }
+
+        glProgramUniform3fv(programLight, lightColorLocation, 4, &lightsColor[0]);
 
         imguiEndScrollArea();
         imguiEndFrame();

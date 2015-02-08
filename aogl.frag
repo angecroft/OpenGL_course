@@ -15,8 +15,8 @@ uniform vec3 Light;
 //uniform vec3 pointLightColor[4];
 //uniform float pointLightIntensity[4];
 
-uniform float spotAngle;
-uniform vec3 spotDirection;
+//uniform float spotAngle;
+//uniform vec3 spotDirection;
 
 uniform vec3 Camera;
 uniform int specularPower;
@@ -59,6 +59,7 @@ void main()
 {
 
     vec3 diffuseColor = texture(Diffuse, In.TexCoord).rgb;
+    vec3 spec = texture(Diffuse2, In.TexCoord).rgb;
 
     // illumination diffuse
     vec3 l = normalize(Light - In.Position);
@@ -71,5 +72,6 @@ void main()
     Normal.a = specularPower;
 
     Color.rgb = diffuseColor;
+    Color.a = spec.r;
 
 }

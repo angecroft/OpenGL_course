@@ -24,7 +24,7 @@ void main()
 {
     vec3 pos = Position;
     gl_Position = MVP * vec4(pos, 1.0);
-    gl_PointSize = 30.0;
+    gl_PointSize = 20.0;
 
     Out.Position = Position;
 }

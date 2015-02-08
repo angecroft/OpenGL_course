@@ -7,9 +7,9 @@ uniform sampler2D ColorBuffer;
 uniform sampler2D NormalBuffer;
 uniform sampler2D DepthBuffer;
 uniform mat4 ScreenToWorld;
-uniform vec3 pointLightPosition[4];
-uniform vec3 pointLightColor[4];
-uniform float pointLightIntensity[4];
+uniform vec3 pointLightPosition;
+uniform vec3 pointLightColor;
+uniform float pointLightIntensity;
 uniform vec3 Camera;
 
 layout(location = 0) out vec4 Color;
@@ -54,7 +54,7 @@ void main(void)
     // Divide by w
     vec3 p = vec3(wP.xyz / wP.w);
 
-    vec3 pointLight1 = illuminationPointLight(pointLightPosition[0], p, pointLightColor[0], pointLightIntensity[0], diffuseColor, specularColor, specularPower, n );
+    vec3 pointLight1 = illuminationPointLight(pointLightPosition, p, pointLightColor, pointLightIntensity, diffuseColor, specularColor, specularPower, n );
 
     Color = vec4(pointLight1, 1.0);
 }
