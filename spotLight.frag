@@ -101,16 +101,16 @@ void main(void)
     float d = distance(spotLightPosition, p);
 
 //    float shadowDepth = texture(Shadow, lP.xy).r;
-//    float shadowDepth = textureProj(Shadow, vec4(lP.xy, lP.z -bias, 1.0), 0.0);
+    float shadowDepth = textureProj(Shadow, vec4(lP.xy, lP.z -bias, 1.0), 0.0);
 
-    float shadowDepth = 0.0;
-    int SampleCount = 2;
-    float samplesf = SampleCount;
-    for (int i=0;i<SampleCount;i++)
-    {
-        int index = int(samplesf*random(vec4(gl_FragCoord.xyy, i)))%SampleCount;
-        shadowDepth += textureProj(Shadow, vec4(lP.xy + poissonDisk[index]/(1000.0 * 1.f/d), lP.z -0.005, 1.0), 0.0) / samplesf;
-    }
+//    float shadowDepth = 0.0;
+//    int SampleCount = 2;
+//    float samplesf = SampleCount;
+//    for (int i=0;i<SampleCount;i++)
+//    {
+//        int index = int(samplesf*random(vec4(gl_FragCoord.xyy, i)))%SampleCount;
+//        shadowDepth += textureProj(Shadow, vec4(lP.xy + poissonDisk[index]/(1000.0 * 1.f/d), lP.z -0.005, 1.0), 0.0) / samplesf;
+//    }
 
     vec3 spotLight = illuminationSpotLight(spotLightDirection, spotLightPosition, p, spotLightColor, spotLightAngle,
                                            spotLightIntensity, diffuseColor, specularColor, specularPower, n, lP, shadowDepth );

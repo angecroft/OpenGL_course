@@ -171,6 +171,15 @@ int main( int argc, char **argv )
     GLuint directionalLightFragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "directionalLight.frag");
     GLuint shadowVertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "shadow.vert");
     GLuint shadowFragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "shadow.frag");
+    GLuint gammaVertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "gamma.vert");
+    GLuint gammaFragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "gamma.frag");
+    GLuint sobelVertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "sobel.vert");
+    GLuint sobelFragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "sobel.frag");
+    GLuint blurVertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "blur.vert");
+    GLuint blurFragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "blur.frag");
+    GLuint cocVertShaderId = compile_shader_from_file(GL_VERTEX_SHADER, "coc.vert");
+    GLuint cocFragShaderId = compile_shader_from_file(GL_FRAGMENT_SHADER, "coc.frag");
+    // programs
     GLuint programObject = glCreateProgram();
     GLuint programLight = glCreateProgram();
     GLuint programBlit = glCreateProgram();
@@ -178,6 +187,10 @@ int main( int argc, char **argv )
     GLuint programDirectionalLight = glCreateProgram();
     GLuint programPointLight = glCreateProgram();
     GLuint programShadow = glCreateProgram();
+    GLuint programGamma = glCreateProgram();
+    GLuint programSobel = glCreateProgram();
+    GLuint programBlur = glCreateProgram();
+    GLuint programCoc = glCreateProgram();
     // scene
     glAttachShader(programObject, vertShaderId);
     glAttachShader(programObject, fragShaderId);
@@ -221,7 +234,30 @@ int main( int argc, char **argv )
     glLinkProgram(programShadow);
     if(check_link_error(programShadow))
         exit(1);
-
+    // gamma
+    glAttachShader(programGamma, gammaFragShaderId);
+    glAttachShader(programGamma, gammaVertShaderId);
+    glLinkProgram(programGamma);
+    if(check_link_error(programGamma))
+        exit(1);
+    // sobel
+    glAttachShader(programSobel, sobelFragShaderId);
+    glAttachShader(programSobel, sobelVertShaderId);
+    glLinkProgram(programSobel);
+    if(check_link_error(programSobel))
+        exit(1);
+    // blur
+    glAttachShader(programBlur, blurFragShaderId);
+    glAttachShader(programBlur, blurVertShaderId);
+    glLinkProgram(programBlur);
+    if(check_link_error(programBlur))
+        exit(1);
+    // Circle of Confusion
+    glAttachShader(programCoc, cocFragShaderId);
+    glAttachShader(programCoc, blitVertShaderId);
+    glLinkProgram(programCoc);
+    if(check_link_error(programCoc))
+        exit(1);
 //    if (!checkError("Uniforms"))
 //        exit(1);
 
@@ -283,7 +319,7 @@ int main( int argc, char **argv )
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     ///////////////////////
-    // Create shadow FBO
+    /// Create shadow FBO
     ///////////////////////
     GLuint shadowFbo;
     glGenFramebuffers(1, &shadowFbo);
@@ -328,7 +364,79 @@ int main( int argc, char **argv )
     // Back to the default framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    // Init OpenGL
+    ///////////////////
+    /// Texture Light
+    ///////////////////
+
+    GLuint gbufferFboLight;
+    GLuint gbufferTextureLight;
+    glGenTextures(1, &gbufferTextureLight);
+    GLuint gbufferDrawBuffersLight;
+
+    // Create color texture
+    glBindTexture(GL_TEXTURE_2D, gbufferTextureLight);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Create Framebuffer Object
+    glGenFramebuffers(1, &gbufferFboLight);
+    glBindFramebuffer(GL_FRAMEBUFFER, gbufferFboLight);
+    // Initialize DrawBuffers
+    gbufferDrawBuffersLight = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, &gbufferDrawBuffersLight);
+
+    // Attach textures to framebuffer
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, gbufferTextureLight, 0);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        fprintf(stderr, "Error on building framebuffer\n");
+        exit( EXIT_FAILURE );
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    ////////////
+    /// FX FBO
+    ////////////
+
+    // Create Fx Framebuffer Object
+    GLuint fxFbo;
+    GLuint fxDrawBuffers[1];
+    glGenFramebuffers(1, &fxFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fxFbo);
+    fxDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, fxDrawBuffers);
+
+    // Create Fx textures
+    const int FX_TEXTURE_COUNT = 4;
+    GLuint fxTextures[FX_TEXTURE_COUNT];
+    glGenTextures(FX_TEXTURE_COUNT, fxTextures);
+    for (int i = 0; i < FX_TEXTURE_COUNT; ++i)
+    {
+        glBindTexture(GL_TEXTURE_2D, fxTextures[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+
+    // Attach first fx texture to framebuffer
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        fprintf(stderr, "Error on building framebuffern");
+        exit( EXIT_FAILURE );
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    ///////////////////
+    /// Init OpenGL
+    ///////////////////
 
     int cube_triangleCount = 12;
     int cube_triangleList[] = {0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11, 12, 13, 14, 14, 13, 15, 16, 17, 18, 19, 17, 20, 21, 22, 23, 24, 25, 26, };
@@ -438,18 +546,27 @@ int main( int argc, char **argv )
     float pointLightColor[0] /*= {1,0,0,0,1,0}*/;
     float pointLightIntensity[0]/* = {0.5, 0.5}*/;
     // Spot lights
-    int spotLightCount = 1;
-    float spotLightDirection[] = {-0.4,-1,0};
-    float spotLightPos[] = {1,3,0};
-    float spotLightColor[] = {0.5,0.5,1};
-    float spotLightIntensity[] = {1};
-    float spotLightAngle[] = {60.0};
+    int spotLightCount = 2;
+    float spotLightDirection[] = {-0.4,-1,0, 0,-1,-0.4};
+    float spotLightPos[] = {1,3,0, -1,2,0};
+    float spotLightColor[] = {0.5,0.5,1, 1,0.2,0.8};
+    float spotLightIntensity[] = {1,1};
+    float spotLightAngle[] = {60.0,70.0};
     float bias = 0.005;
     // Directional lights
     int dirLightCount = 0;
     float dirLightDirection[0] /*= {1,1,0,0,0,1}*/;
     float dirLightColor[0] /*= {0,0.5,1,1,0.5,0}*/;
     float dirLightIntensity[0] /*= {1, 1}*/;
+    // Gamma
+    float gamma = 1;
+    // Sobel
+    float factorSobel = 0.5;
+    // Blur
+    float sampleCount = 1;
+    glm::ivec2 directionBlur(-1,0);
+    // Circle of Confusion
+    glm::vec3 focus(1,3,10);
 
     // Point of light
     float lightsPos[(pointLightCount+spotLightCount)*3];
@@ -516,11 +633,10 @@ int main( int argc, char **argv )
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    // Initialize uniform location
+    /// Initialize uniform location
     GLuint timeLocation = glGetUniformLocation(programObject, "Time");
     GLuint cameraLocation = glGetUniformLocation(programObject, "Camera");
     GLuint specularLocation = glGetUniformLocation(programObject, "specularPower");
-    GLuint lightLocation = glGetUniformLocation(programObject, "Light");
     GLuint diffuseLocation2 = glGetUniformLocation(programObject, "Diffuse2");
     GLuint diffuseLocation = glGetUniformLocation(programObject, "Diffuse");
     GLuint lightColorLocation = glGetUniformLocation(programLight, "lightColor");
@@ -569,6 +685,17 @@ int main( int argc, char **argv )
     GLuint dirLightColorLocation = glGetUniformLocation(programDirectionalLight, "directionalLightColor");
     GLuint dirLightIntensityLocation = glGetUniformLocation(programDirectionalLight, "directionalLightIntensity");
     GLuint cameraLocation4 = glGetUniformLocation(programDirectionalLight, "Camera");
+
+    // Gamma
+    GLuint gammaLocation = glGetUniformLocation(programGamma, "Gamma");
+    // Sobel
+    GLuint sobelLocation = glGetUniformLocation(programSobel, "Factor");
+    // Blur
+    GLuint sampleCountLocation = glGetUniformLocation(programBlur, "SampleCount");
+    GLuint directionLocation = glGetUniformLocation(programBlur, "Direction");
+    // Circle of Confusion
+    GLuint focusLocation = glGetUniformLocation(programCoc, "Focus");
+    GLuint screenToViewCocLocation = glGetUniformLocation(programCoc, "ScreenToView");
 
     glProgramUniform1i(programObject, diffuseLocation, 0);
     glProgramUniform1i(programObject, diffuseLocation2, 1);
@@ -664,11 +791,12 @@ int main( int argc, char **argv )
         glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 
 
-        // Get camera matrices
+        /// Get camera matrices
         glm::mat4 projection = glm::perspective(45.0f, widthf / heightf, 0.1f, 100.f); 
         glm::mat4 worldToView = glm::lookAt(camera.eye, camera.o, camera.up);
         glm::mat4 objectToWorld;
         glm::mat4 mvp = projection * worldToView * objectToWorld;
+        glm::mat4 inverseProjection = glm::inverse(projection);
         // Compute the inverse worldToScreen matrix
         glm::mat4 screenToWorld = glm::transpose(glm::inverse(mvp));
 
@@ -698,7 +826,7 @@ int main( int argc, char **argv )
         glProgramUniformMatrix4fv(programSpotLight, worldToLightScreenLocation_sl, 1, 0, glm::value_ptr(worldToLightScreen));
 
         //////////////
-        // shadow FBO
+        /// shadow FBO
         //////////////
         // Default states
         glEnable(GL_DEPTH_TEST);
@@ -725,7 +853,7 @@ int main( int argc, char **argv )
         glViewport(0, 0, width, height);
 
         /////////////////
-        // gbuffer FBO
+        /// gbuffer FBO
         /////////////////
 
         glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo);
@@ -747,7 +875,7 @@ int main( int argc, char **argv )
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         ///////////////////
-        // Main Viewport
+        /// Main Viewport
         ///////////////////
         // Unbind the frambuffer
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -774,6 +902,14 @@ int main( int argc, char **argv )
         glActiveTexture(GL_TEXTURE0 + 3);
         glBindTexture(GL_TEXTURE_2D, shadowTexture);
 
+        /////////////////////
+        /// gBuffer FBO Light
+        //////////////////////
+        glBindFramebuffer(GL_FRAMEBUFFER, gbufferFboLight);
+
+        // Clear the gbuffer
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         // Point light
         for (int i = 0; i < pointLightCount; ++i)
         {
@@ -783,6 +919,7 @@ int main( int argc, char **argv )
             glProgramUniform3fv(programPointLight, pointLightPosLocation, 1, &pointLightPos[i*3]);
             glProgramUniform3fv(programPointLight, pointLightColorLocation, 1, &pointLightColor[i*3]);
         }
+
 
         // Spot light
         glUseProgram(programSpotLight);
@@ -798,6 +935,7 @@ int main( int argc, char **argv )
             glProgramUniform1fv(programSpotLight, biasLocation, 1, &bias);
         }
 
+
         // Directional light
         glUseProgram(programDirectionalLight);
         for (int i = 0; i < dirLightCount; ++i)
@@ -809,7 +947,90 @@ int main( int argc, char **argv )
             glProgramUniform1fv(programDirectionalLight, dirLightIntensityLocation, 1, &dirLightIntensity[i]);
         }
 
+        // Unbind the frambuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glActiveTexture(GL_TEXTURE0);
+
+        ////////////
+        /// Sobel
+        ////////////
+        glBindFramebuffer(GL_FRAMEBUFFER, fxFbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Bind the quad vao if not already bound
+        glBindVertexArray(vaoQuad);
+        glUseProgram(programSobel);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gbufferTextureLight);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        ////////////////////
+        /// Circle of confusion
+        ////////////////////
+        // Use circle of confusion program shader
+        glUseProgram(programCoc);
+
+        // Write into Circle of Confusion Texture
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[3], 0);
+        glProgramUniformMatrix4fv(programCoc, screenToViewCocLocation, 1, 0, glm::value_ptr(inverseProjection));
+        // Clear the content of  texture
+        glClear(GL_COLOR_BUFFER_BIT);
+        glActiveTexture(GL_TEXTURE0);
+        // Read the depth texture
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        ////////////
+        /// Blur
+        ////////////
+        // Use blur program shader
+        glUseProgram(programBlur);
+
+        // Write into Vertical Blur Texture
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
+        // Clear the content of texture
+        glClear(GL_COLOR_BUFFER_BIT);
+        glActiveTexture(GL_TEXTURE0);
+        directionBlur = glm::ivec2(0, 1);
+        glProgramUniform2iv(programBlur, directionLocation,1, &directionBlur[0]);
+        // Read the texture processed by the Sobel operator
+        glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        directionBlur = glm::ivec2(1, 0);
+        glProgramUniform2iv(programBlur, directionLocation, 1, &directionBlur[0]);
+        // Write into Horizontal Blur Texture
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[2], 0);
+        // Clear the content of texture
+        glClear(GL_COLOR_BUFFER_BIT);
+        glActiveTexture(GL_TEXTURE0);
+        // Read the texture processed by the Vertical Blur
+        glBindTexture(GL_TEXTURE_2D, fxTextures[1]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        ////////////
+        /// Gamma
+        ////////////
+
+        // Default framebuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, width, height);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_DEPTH_TEST);
+        // Set quad as vao
+        glBindVertexArray(vaoQuad);
+
+        // Gamma
+        glUseProgram(programGamma);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[2]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        //////////////////
+        /// Light point
+        //////////////////
+
         // Disable blending
         glDisable(GL_BLEND);
 
@@ -819,7 +1040,7 @@ int main( int argc, char **argv )
         glDrawArrays(GL_POINTS, 0, pointLightCount+spotLightCount);
 
         /////////////////
-        // blit screens
+        /// blit screens
         /////////////////
 
         // Use the blit program
@@ -829,24 +1050,29 @@ int main( int argc, char **argv )
         glProgramUniform1i(programBlit, isDepthLocation, 0);
 
         // Viewport1
-        glViewport( 0, 0, width/4, height/4);
+        glViewport( 0, 0, width/5, height/5);
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         // Viewport2
-        glViewport( width/4, 0, width/4, height/4);
+        glViewport( width/5, 0, width/5, height/5);
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         // Viewport3
-        glViewport( 2*width/4, 0, width/4, height/4);
+        glViewport( 2*width/5, 0, width/5, height/5);
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
         glProgramUniform1i(programBlit, isDepthLocation, 1);
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
         // Viewport4
-        glViewport( 3*width/4, 0, width/4, height/4);
+        glViewport( 3*width/5, 0, width/5, height/5);
         glBindTexture(GL_TEXTURE_2D, shadowTexture);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+        // Viewport5
+        glViewport( 4*width/5, 0, width/5, height/5);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[3]);
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
 #if 1
@@ -902,6 +1128,12 @@ int main( int argc, char **argv )
             lightsColor[(i+pointLightCount)*3+2] = spotLightColor[i*3+2];
         }
         imguiSlider("Bias", &bias, 0.0, 0.2, 0.001);
+        imguiSlider("Gamma", &gamma, 0, 6, 0.1);
+        imguiSlider("Sobel", &factorSobel, 0, 2, 0.01);
+        imguiSlider("SampleCount", &sampleCount, 1, 15, 1);
+        imguiSlider("Near", &focus.x, 1, 15, 1);
+        imguiSlider("Focus", &focus.y, 1, 15, 1);
+        imguiSlider("Far", &focus.z, 1, 50, 1);
 
         imguiLabel("Directional Light");
         for(int i=0; i<dirLightCount; ++i)
@@ -909,6 +1141,10 @@ int main( int argc, char **argv )
             imguiSlider("Intensity", &dirLightIntensity[i], 0.0, 1.0, 0.05);
         }
 
+        glProgramUniform1f(programGamma, gammaLocation, gamma);
+        glProgramUniform1f(programSobel, sobelLocation, factorSobel);
+        glProgramUniform1i(programBlur, sampleCountLocation, sampleCount);
+        glProgramUniform3fv(programCoc, focusLocation, 1, &focus[0]);
         glProgramUniform3fv(programLight, lightColorLocation, 4, &lightsColor[0]);
 
         imguiEndScrollArea();
